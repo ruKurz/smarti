@@ -22,7 +22,7 @@
     <parent>
         <groupId>io.redlink.smarti</groupId>
         <artifactId>smarti</artifactId>
-        <version>0.4.0-SNAPSHOT</version>
+        <version>0.4.0-RC3-SNAPSHOT</version>
     </parent>
 
     <artifactId>smarti-application</artifactId>
@@ -33,6 +33,12 @@
             <groupId>io.redlink.smarti</groupId>
             <artifactId>smarti-core</artifactId>
             <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.redlink.smarti</groupId>
+            <artifactId>smarti-frontend</artifactId>
+            <version>${project.version}</version>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -243,10 +249,10 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- (8) DB Search Related Documents -->
+        <!-- (8) Solr based Information Retrieval -->
         <dependency>
             <groupId>io.redlink.smarti</groupId>
-            <artifactId>query-dbsearch</artifactId>
+            <artifactId>query-solr</artifactId>
             <version>${project.version}</version>
             <scope>runtime</scope>
         </dependency>
@@ -335,7 +341,6 @@
                             <failIfWarning>true</failIfWarning>
                             <excludedScopes>test,provided,system</excludedScopes>
                             <excludedGroups>((io|co)\.redlink\..*)</excludedGroups>
-                            <!-- Not pacakged -->
                             <excludedArtifacts>stanford-corenlp</excludedArtifacts>
                         </configuration>
                     </execution>

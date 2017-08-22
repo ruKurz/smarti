@@ -50,31 +50,31 @@ const localize = new Localize({
         "de": "Konversations-Parameter konnten nicht geladen werden: $[1]",
         "en": "Cannot load conversation params: $[1]"
     },
-    "widget.db.query.failed":{
+    "widget.latch.query.failed":{
         "de": "Widget $[1] hat Probleme bei der Anfrage: $[2]",
         "en": "Widget $[1] has problems while quering: $[2]"
     },
-    "widget.db.query.no-results":{
+    "widget.latch.query.no-results":{
         "de":"Keine Ergbenisse",
         "en":"No results"
     },
-    "widget.db.query.header":{
+    "widget.latch.query.header":{
         "en": "$[1] results",
         "de": "$[1] Ergebnisse"
     },
-    "widget.db.query.header.paged":{
+    "widget.latch.query.header.paged":{
         "en": "Page $[1] of $[2] results",
         "de": "Seite $[1] von $[2] Ergebnissens"
     },
-    "widget.db.query.paging.next":{
+    "widget.latch.query.paging.next":{
         "en": "Next",
         "de": "Nächste"
     },
-    "widget.db.query.paging.prev":{
+    "widget.latch.query.paging.prev":{
         "en": "Previous",
         "de": "Vorherige"
     },
-    "widget.db.answer.title":{
+    "widget.latch.answer.title":{
         "de": "Das hab ich dazu in $[1] gefunden:",
         "en": "That I found in $[1]:"
     },
@@ -361,12 +361,6 @@ function Tracker(category, roomId, onEvent) {
  *       smartiEndpoint: 'http://localhost:8080/',
  *       channel: 'GENERAL',
  *       widget:{
- *           'query.dbsearch': {
- *               numOfRows:2
- *           },
- *           'query.keyword': {
- *               disabled:true
- *           }
  *       },
  *       lang:'de',
  *       inputFieldSelector: '.selector'
@@ -389,12 +383,6 @@ function SmartiWidget(element,_options) {
             cssInputSelector: '.message-form-text.input-message'
         },
         widget: {
-            'query.dbsearch': {
-            		numOfRows: 2
-            },
-            'query.dbsearch.keyword': {
-                disabled: true
-            }
         },
         tracker: {
             onEvent: (typeof Piwik != 'undefined' && Piwik) ? Piwik.getTracker().trackEvent : function(){},
@@ -445,9 +433,9 @@ function SmartiWidget(element,_options) {
      * }
      * @constructor
      */
-    function DBSearchWidget(params,wgt_conf) {
+    function IrLatchWidget(params,wgt_conf) {
 
-        const numOfRows = wgt_conf.numOfRows || 3;
+        const numOfRows = wgt_conf.numOfRows || params.query.resultConfig.numOfRows;
 
         params.elem.append('<h2>' + params.query.displayTitle + '</h2>');
         var content = $('<div>').appendTo(params.elem);
@@ -461,7 +449,7 @@ function SmartiWidget(element,_options) {
                 .click(function(){
                     $(this).hide();
                     getResults(0);
-                    tracker.trackEvent("search.dbsearch.tag.remove");
+                    tracker.trackEvent(params.query.creator + ".tag.remove");
                 });
         }
 
@@ -499,7 +487,7 @@ function SmartiWidget(element,_options) {
 
         function refresh(data) {
 
-            console.debug('refresh db search widget:\n%s', JSON.stringify(data,null,2));
+            console.debug('refresh ir-latch search widget:\n%s', JSON.stringify(data,null,2));
 
             var tokens = data.tokens;
             var slots = data.templates[params.tempid].slots;
@@ -538,7 +526,7 @@ function SmartiWidget(element,_options) {
                         type:'Keyword'
                     }));
                     $(this).val("");
-                    tracker.trackEvent("search.dbsearch.tag.add");
+                    tracker.trackEvent(params.query.creator + ".tag.add");
                 }
                 getResults(0);
             }
@@ -553,9 +541,15 @@ function SmartiWidget(element,_options) {
         function getResults(page) {
             var tks = termPills.children(':visible').map(function(){return $(this).data().token.value}).get().join(" ");
 
+            //TODO still a hack !!!
             params.query.url = params.query.url.substring(0,params.query.url.indexOf('?')) + '?wt=json&fl=*,score&rows=' + numOfRows + '&q=' + tks;
             if (wgt_conf.suffix) {
-            		params.query.url += wgt_conf.suffix;
+                params.query.url += wgt_conf.suffix;
+            }
+
+            //append params
+            for(var property in params.query.defaults) {
+                params.query.url += '&' + property + "=" + params.query.defaults[property];
             }
 
             if(page > 0) {
@@ -574,32 +568,32 @@ function SmartiWidget(element,_options) {
                 dataType: 'jsonp',
                 jsonp: 'json.wrf',
                 failure: function(err) {
-                    console.error({code:'widget.db.query.failed',args:[params.query.displayTitle,err.responseText]});
-                	},
+                    console.error({code:'widget.latch.query.failed',args:[params.query.displayTitle,err.responseText]});
+                },
                 success: function(data){
                     loader.hide();
 
-                    tracker.trackEvent("search.dbsearch",data.response.numFound);
+                    tracker.trackEvent(params.query.creator + "",data.response.numFound);
 
                     if(data.response.numFound == 0) {
-                        resultCount.text(Utils.localize({code:'widget.db.query.no-results'}));
+                        resultCount.text(Utils.localize({code:'widget.latch.query.no-results'}));
                         return;
                     }
 
-                    //map to dbsearch results TODO should be configurable
+                    //map to search results
                     var docs = $.map(data.response.docs, function(doc) {
                         return {
-                            source: doc.dbsearch_source_name_s + '/' + doc.dbsearch_space_name_t,
-                            title: doc.dbsearch_title_s,
-                            description: doc.dbsearch_excerpt_s,
-                            type: doc.dbsearch_doctype_s,
-                            doctype: doc.dbsearch_content_type_aggregated_s.slice(0,4),//TODO Utils.mapDocType(doc.type)?
-                            link: doc.dbsearch_link_s,
-                            date: new Date(doc.dbsearch_pub_date_tdt)
+                            source: params.query.resultConfig.mappings.source ? doc[params.query.resultConfig.mappings.source] : undefined,
+                            title: params.query.resultConfig.mappings.title ? doc[params.query.resultConfig.mappings.title] : undefined,
+                            description: params.query.resultConfig.mappings.description ? doc[params.query.resultConfig.mappings.description] : undefined,
+                            type: params.query.resultConfig.mappings.type ? doc[params.query.resultConfig.mappings.type] : undefined,
+                            doctype: params.query.resultConfig.mappings.doctype ? doc[params.query.resultConfig.mappings.doctype] : undefined,
+                            link: params.query.resultConfig.mappings.link ? doc[params.query.resultConfig.mappings.link] : undefined,
+                            date: params.query.resultConfig.mappings.date ? new Date(doc[params.query.resultConfig.mappings.date]) : undefined
                         };
                     });
 
-                    resultCount.text(Utils.localize({code:'widget.db.query.header',args:[data.response.numFound]}));
+                    resultCount.text(Utils.localize({code:'widget.latch.query.header',args:[data.response.numFound]}));
 
                     $.each(docs,function(i,doc){
                         var docli = $('<li>' +
@@ -610,7 +604,7 @@ function SmartiWidget(element,_options) {
                             '</li>');
 
                         docli.find('.postAnswer').click(function(){
-                            var text = Utils.localize({code:"widget.db.answer.title",args:[params.query.displayTitle]});
+                            var text = Utils.localize({code:"widget.latch.answer.title",args:[params.query.displayTitle]});
                             var attachments = [{
                                 title: doc.title,
                                 title_link: doc.link,
@@ -625,18 +619,18 @@ function SmartiWidget(element,_options) {
                                 smarti.post(text,attachments);
                             }
 
-                            tracker.trackEvent("search.dbsearch.result.post", (page*numOfRows) + i);
+                            tracker.trackEvent(params.query.creator + ".result.post", (page*numOfRows) + i);
                         });
 
                         results.append(docli);
                     });
 
-                    var prev = $('<span>').text(Utils.localize({code:'widget.db.query.paging.prev'})).prepend('<i class="icon-angle-left">');
-                    var next = $('<span>').text(Utils.localize({code:'widget.db.query.paging.next'})).append('<i class="icon-angle-right">');;
+                    var prev = $('<span>').text(Utils.localize({code:'widget.latch.query.paging.prev'})).prepend('<i class="icon-angle-left">');
+                    var next = $('<span>').text(Utils.localize({code:'widget.latch.query.paging.next'})).append('<i class="icon-angle-right">');;
 
                     if(page > 0) {
                         prev.click(function(){
-                            tracker.trackEvent("search.dbsearch.result.paging", page-1);
+                            tracker.trackEvent(params.query.creator + ".result.paging", page-1);
                             getResults(page-1)
                         });
                     } else {
@@ -645,7 +639,7 @@ function SmartiWidget(element,_options) {
 
                     if((data.response.numFound/numOfRows) > (page+1)) {
                         next.addClass('active').click(function(){
-                            tracker.trackEvent("search.dbsearch.result.paging", page+1);
+                            tracker.trackEvent(params.query.creator + ".result.paging", page+1);
                             getResults(page+1)
                         });
                     } else {
@@ -669,6 +663,14 @@ function SmartiWidget(element,_options) {
         }
     }
 
+    /**
+     * @param params
+     * @param wgt_conf
+     * @returns {
+     *      refresh: FUNCTION
+     * }
+     * @constructor
+     */
     function ConversationWidget(params,wgt_config) {
 
         params.elem.append('<h2>' + Utils.localize({code:'widget.conversation.title'}) + '</h2>');
@@ -873,8 +875,8 @@ function SmartiWidget(element,_options) {
                     var constructor = undefined;
 
                     switch(template.type) {
-                        case 'dbsearch':
-                            constructor = DBSearchWidget;break;
+                        case 'ir_latch':
+                            constructor = IrLatchWidget;break;
                         case 'related.conversation':
                             constructor = ConversationWidget;break;
                     }

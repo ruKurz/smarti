@@ -20,10 +20,14 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.base.Preconditions;
 import io.redlink.smarti.api.StoreService;
+import io.redlink.smarti.exception.NotFoundException;
+import io.redlink.smarti.model.Client;
 import io.redlink.smarti.model.Conversation;
 import io.redlink.smarti.model.Message;
 import io.redlink.smarti.model.User;
+import io.redlink.smarti.services.ClientService;
 import io.redlink.smarti.services.ConversationService;
+import io.redlink.smarti.utils.ResponseEntities;
 import io.redlink.smarti.webservice.pojo.RocketEvent;
 import io.redlink.smarti.webservice.pojo.SmartiUpdatePing;
 import io.swagger.annotations.Api;
@@ -70,6 +74,9 @@ public class RocketChatEndpoint {
     private StoreService storeService;
 
     @Autowired
+    private ClientService clientService;
+
+    @Autowired
     private ConversationService conversationService;
 
     protected final HttpClientBuilder httpClientBuilder;
@@ -110,9 +117,16 @@ public class RocketChatEndpoint {
                                            @RequestBody RocketEvent payload) {
         log.debug("{}: {}", clientId, payload);
 
+        if(!clientService.existsByName(clientId)) {
+            Client client = new Client();
+            client.setName(clientId);
+            clientService.save(client);
+        }
+
         final String channelId = createChannelId(clientId, payload.getChannelId());
         Conversation conversation = storeService.getCurrentConversationByChannelId(channelId, () -> {
             Conversation newConversation = new Conversation();
+            newConversation.setClientId(clientId);
             newConversation.getContext().setContextType(ROCKET_CHAT);
             newConversation.getContext().setDomain(clientId);
             newConversation.getContext().setEnvironment("channel", payload.getChannelName());
@@ -120,6 +134,9 @@ public class RocketChatEndpoint {
             newConversation.getContext().setEnvironment("token", payload.getToken());
             return newConversation;
         });
+        if(!conversation.getChannelId().equals(channelId)){
+            return ResponseEntities.conflict("clientId does not match for existing Conversation[id:" + conversation.getId()+ "]");
+        }
 
         final Message message = new Message();
         message.setId(payload.getMessageId());
