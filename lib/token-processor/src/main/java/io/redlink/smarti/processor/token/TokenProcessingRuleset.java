@@ -15,7 +15,7 @@
  *
  */
 
-package io.redlink.reisebuddy.extractor.token;
+package io.redlink.smarti.processor.token;
 
 import io.redlink.smarti.model.Message;
 import io.redlink.smarti.model.MessageTopic;

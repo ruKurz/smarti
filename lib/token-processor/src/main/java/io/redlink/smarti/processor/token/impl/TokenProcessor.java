@@ -15,14 +15,15 @@
  *
  */
 
-package io.redlink.reisebuddy.extractor.token.impl;
+package io.redlink.smarti.processor.token.impl;
 
 import io.redlink.nlp.api.ProcessingData;
 import io.redlink.nlp.api.Processor;
-import io.redlink.reisebuddy.extractor.token.TokenProcessingRuleset;
 import io.redlink.smarti.model.*;
 import io.redlink.smarti.model.Message.Origin;
 import io.redlink.smarti.model.Token.Type;
+import io.redlink.smarti.processor.token.TokenProcessingRuleset;
+
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -47,10 +48,9 @@ public class TokenProcessor extends Processor {
     private static final float MIN_TOPIC_CONF = 0f;
     private final Collection<TokenProcessingRuleset> rulesets;
 
-    @Autowired
-    public TokenProcessor(Collection<TokenProcessingRuleset> rulesets) {
+    public TokenProcessor(Optional<Collection<TokenProcessingRuleset>> rulesets) {
         super("token.processor","Token Processor",Phase.post);
-        this.rulesets = rulesets;
+        this.rulesets = rulesets.orElse(null);
     }
     
     @Override
@@ -65,6 +65,9 @@ public class TokenProcessor extends Processor {
     
     @Override
     protected void doProcessing(ProcessingData processingData) {
+        if(rulesets == null){
+            return;
+        }
         //(1) filter the rule sets based on the language of the conversation
         String language = processingData.getLanguage();
         List<TokenProcessingRuleset> rulesets = this.rulesets.stream()

@@ -22,7 +22,7 @@
     <parent>
         <groupId>io.redlink.smarti</groupId>
         <artifactId>smarti</artifactId>
-        <version>0.4.0-RC3-SNAPSHOT</version>
+        <version>0.4.1-SNAPSHOT</version>
     </parent>
 
     <artifactId>smarti-dist</artifactId>
@@ -458,13 +458,19 @@
                                 <!-- directories -->
                                 <mapping>
                                     <directory>/var/log/${packageName}</directory>
+                                    <filemode>755</filemode>
                                     <username>${daemonUser}</username>
                                     <groupname>root</groupname>
                                 </mapping>
                                 <mapping>
                                     <directory>/var/lib/${packageName}</directory>
+                                    <filemode>755</filemode>
                                     <username>${daemonUser}</username>
                                     <groupname>${daemonUser}</groupname>
+                                </mapping>
+                                <mapping>
+                                    <directory>/var/lib/${packageName}/ext</directory>
+                                    <filemode>755</filemode>
                                 </mapping>
                                 <mapping>
                                     <sources>

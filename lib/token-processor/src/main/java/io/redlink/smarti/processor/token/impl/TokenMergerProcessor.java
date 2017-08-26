@@ -15,7 +15,7 @@
  *
  */
 
-package io.redlink.reisebuddy.extractor.token.impl;
+package io.redlink.smarti.processor.token.impl;
 
 import io.redlink.nlp.api.ProcessingData;
 import io.redlink.nlp.api.Processor;
@@ -28,22 +28,22 @@ import java.util.*;
 import static io.redlink.smarti.processing.SmartiAnnotations.CONVERSATION_ANNOTATION;
 
 /**
- * {@link QueryPreparator} that filters overlapping Tokens of
+ * {@link QueryPreparator} that merges overlapping Tokens of
  * the same type. This happens if multiple QueryPreparators
  * do mark the same mention in the conversation as an Token with
  * the same {@link Token.Type}.
  * <p>
- * {@link Hint}s of filtered {@link Token}s are copied over to the
+ * {@link Hint}s of merged {@link Token}s are copied over to the
  * token that is kept.
  * 
  * @author Rupert Westenthaler
  *
  */
 @Component
-public class TokenFilter extends Processor {
+public class TokenMergerProcessor extends Processor {
 
-    protected TokenFilter() {
-        super("token.filter","Token Filter",Phase.post,10); //the last one
+    protected TokenMergerProcessor() {
+        super("token.merger","Token Merger",Phase.post,10); //the last one
     }
 
     @Override
@@ -91,11 +91,11 @@ public class TokenFilter extends Processor {
                     token.getEnd() > active.getEnd() || !token.getValue().equals(active.getValue())){
                 activeTokens.put(token.getType(), token);
             } else {
-                log.debug("filter token {} contained in {}", token, active);
+                log.debug("merged token {} into {}", token, active);
                 it.remove();
                 for(String hint : token.getHints()){
                     if(active.addHint(hint)){
-                        log.debug("  ... copied Hint {} from contained Token", hint);
+                        log.debug("  ... copied Hint {} from merged Token", hint);
                     }
                 }
             }
