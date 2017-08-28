@@ -22,7 +22,7 @@
     <parent>
         <groupId>io.redlink.smarti</groupId>
         <artifactId>smarti</artifactId>
-        <version>0.2.0-SNAPSHOT</version>
+        <version>0.4.0</version>
     </parent>
 
     <artifactId>smarti-application</artifactId>
@@ -33,6 +33,12 @@
             <groupId>io.redlink.smarti</groupId>
             <artifactId>smarti-core</artifactId>
             <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.redlink.smarti</groupId>
+            <artifactId>smarti-frontend</artifactId>
+            <version>${project.version}</version>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -171,7 +177,6 @@
             <groupId>io.redlink.nlp</groupId>
             <artifactId>nlp-stanfordnlp-de</artifactId>
             <version>${redlinknlp.version}</version>
-            <scope>runtime</scope>
         </dependency>
         <!-- dependency> - TODO: Not yet implemented in Redlink NLP
             <groupId>io.redlink.nlp</groupId>
@@ -183,7 +188,6 @@
             <groupId>io.redlink.nlp</groupId>
             <artifactId>nlp-truecase-de</artifactId>
             <version>${redlinknlp.version}</version>
-            <scope>runtime</scope>
         </dependency>
 
 
@@ -237,10 +241,10 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- (8) DB Search Related Documents -->
+        <!-- (8) Solr based Information Retrieval -->
         <dependency>
             <groupId>io.redlink.smarti</groupId>
-            <artifactId>query-dbsearch</artifactId>
+            <artifactId>query-solr</artifactId>
             <version>${project.version}</version>
             <scope>runtime</scope>
         </dependency>
@@ -329,9 +333,21 @@
                             <failIfWarning>true</failIfWarning>
                             <excludedScopes>test,provided,system</excludedScopes>
                             <excludedGroups>((io|co)\.redlink\..*)</excludedGroups>
+                            <excludedArtifacts>stanford-corenlp</excludedArtifacts>
                         </configuration>
                     </execution>
                 </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-jar-plugin</artifactId>
+                <configuration>
+                    <archive>
+                        <index>true</index>
+                        <manifestEntries>
+                            <Loader-Path>BOOT-INF/lib,ext</Loader-Path>
+                        </manifestEntries>
+                    </archive>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
@@ -348,6 +364,7 @@
                     <!-- repackage -->
                     <classifier>exec</classifier>
                     <mainClass>io.redlink.smarti.Application</mainClass>
+                    <layout>ZIP</layout>
 
                     <!-- jars that requires to be unpacked -->
                     <requiresUnpack>
@@ -360,6 +377,13 @@
                             <artifactId>query-conversation</artifactId>
                         </dependency>
                     </requiresUnpack>
+                    <!-- GPL licensed, needs to be installed manually -->
+                    <excludes>
+                        <exclude>
+                            <groupId>edu.stanford.nlp</groupId>
+                            <artifactId>stanford-corenlp</artifactId>
+                        </exclude>
+                    </excludes>
 
                     <!-- build-info -->
                     <additionalProperties>
