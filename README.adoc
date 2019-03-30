@@ -1,3 +1,5 @@
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FruKurz%2Fsmarti.svg?type=shield)](https://app.fossa.io/projects/git%2Bgithub.com%2FruKurz%2Fsmarti?ref=badge_shield)
+
 image::https://travis-ci.org/redlink-gmbh/smarti.svg?branch=master[Build Status]
 
 = Smarti
@@ -36,3 +38,7 @@ Smarti is lead by http://redlink.co[Redlink] and http://assistify.de[Assistify] 
 The link:docs/changelog.adoc[Changelog] provides a complete list of changes in older releases.
 
 
+
+
+## License
+[![FOSSA Status](https://app.fossa.io/api/projects/git%2Bgithub.com%2FruKurz%2Fsmarti.svg?type=large)](https://app.fossa.io/projects/git%2Bgithub.com%2FruKurz%2Fsmarti?ref=badge_large)
