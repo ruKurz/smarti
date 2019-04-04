@@ -20,7 +20,7 @@
 
     <luceneMatchVersion>6.1.0</luceneMatchVersion>
     <dataDir>${solr.data.dir:}</dataDir>
-
+    <schemaFactory class="ClassicIndexSchemaFactory"/>
     <directoryFactory name="DirectoryFactory"
                       class="${solr.directoryFactory:solr.NRTCachingDirectoryFactory}">
     </directoryFactory>
@@ -103,7 +103,7 @@
         <lst name="defaults">
             <str name="echoParams">explicit</str>
             <str name="wt">json</str>
-            <str name="indent">true</str>
+            <!-- <str name="indent">true</str> -->
 
             <str name="qf">text</str>
 

@@ -24,7 +24,9 @@ buildNumber.properties
 # specific
 application-local.properties
 *.pid
+ext/
 
 # mac related files
 .DS_Store
 solrlib
+config.js

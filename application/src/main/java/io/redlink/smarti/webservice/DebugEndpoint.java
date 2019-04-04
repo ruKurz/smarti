@@ -33,7 +33,7 @@ import java.util.Map;
  */
 @CrossOrigin
 @RestController
-@RequestMapping(value = "debug",
+@RequestMapping(value = "/debug",
         consumes = MimeTypeUtils.APPLICATION_JSON_VALUE,
         produces = MimeTypeUtils.APPLICATION_JSON_VALUE)
 public class DebugEndpoint {
@@ -42,14 +42,14 @@ public class DebugEndpoint {
 
     private final ObjectMapper om;
 
-    public DebugEndpoint() {
-        om = new ObjectMapper();
-        om.enable(SerializationFeature.INDENT_OUTPUT);
+    public DebugEndpoint(ObjectMapper objectMapper) {
+        om = objectMapper;
     }
 
-    @RequestMapping(value = "{path}", method = RequestMethod.POST)
+    @RequestMapping(value = "{path:.*}", method = RequestMethod.POST)
     public ResponseEntity<?> debugRocketEvent(@PathVariable("path") String path,
                                               @RequestBody Map<String, Object> payload) {
+        // Public access
         try {
             log.info("received '{}' event:\n{}", path, om.writeValueAsString(payload));
             return ResponseEntity.accepted().build();

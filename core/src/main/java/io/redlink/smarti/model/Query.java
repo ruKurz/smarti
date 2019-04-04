@@ -17,6 +17,15 @@
 package io.redlink.smarti.model;
 
 
+import java.util.Date;
+
+import org.springframework.data.annotation.PersistenceConstructor;
+
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonGetter;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import com.fasterxml.jackson.annotation.JsonSetter;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.JsonTypeInfo.As;
 import com.fasterxml.jackson.annotation.JsonTypeInfo.Id;
@@ -43,6 +52,9 @@ public class Query {
     @ApiModelProperty(value = "supports inline results", notes = "if the query/creator supports inline results")
     private boolean inlineResultSupport = false;
 
+    @ApiModelProperty(value = "created", notes = "The creation date of this query")
+    private Date created;
+    
     @ApiModelProperty(notes = "state of this query")
     private State state = State.Suggested;
 
@@ -51,58 +63,85 @@ public class Query {
     }
 
     public Query(String creator) {
+        this(creator, new Date());
+    }
+    
+    @PersistenceConstructor
+    @JsonCreator
+    protected Query(@JsonProperty("creator")String creator, @JsonProperty("created")Date created) {
         this.creator = creator;
+        this.created = created;
     }
 
+    @JsonGetter("confidence")
     public float getConfidence() {
         return confidence;
     }
+    /**
+     * The creation date
+     * @return the date or <code>null</code> if unknown (for old data)
+     */
+    @JsonGetter("created")
+    public Date getCreated() {
+        return created;
+    }
 
+    @JsonSetter("confidence")
     public Query setConfidence(float confidence) {
         this.confidence = confidence;
         return this;
     }
 
+    @JsonGetter("displayTitle")
     public String getDisplayTitle() {
         return displayTitle;
     }
 
+    @JsonSetter("displayTitle")
     public Query setDisplayTitle(String displayTitle) {
         this.displayTitle = displayTitle;
         return this;
     }
 
+    @JsonGetter("url")
     public String getUrl() {
         return url;
     }
 
+    @JsonSetter("url")
     public Query setUrl(String url) {
         this.url = url;
         return this;
     }
 
+    @JsonGetter("creator")
     public String getCreator() {
         return creator;
     }
 
+    @JsonSetter("creator")
     public Query setCreator(String creator) {
         this.creator = creator;
         return this;
     }
 
+    @JsonGetter("inlineResultSupport")
     public boolean isInlineResultSupport() {
         return inlineResultSupport;
     }
 
+    @JsonSetter("inlineResultSupport")
     public Query setInlineResultSupport(boolean inlineResultSupport) {
         this.inlineResultSupport = inlineResultSupport;
         return this;
     }
 
+    @JsonGetter("state")
     public State getState() {
         return state;
     }
 
+    @JsonSetter("state")
     public Query setState(State state) {
         this.state = state;
         return this;

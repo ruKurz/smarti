@@ -25,6 +25,7 @@ import io.redlink.nlp.model.Section;
 import io.redlink.nlp.model.pos.Pos;
 import io.redlink.nlp.model.pos.PosSet;
 import io.redlink.nlp.model.util.NlpUtils;
+import io.redlink.smarti.model.Analysis;
 import io.redlink.smarti.model.Conversation;
 import io.redlink.smarti.model.Message;
 import io.redlink.smarti.model.Message.Origin;
@@ -43,17 +44,15 @@ import java.io.Reader;
 import java.nio.charset.Charset;
 import java.util.*;
 
+import static io.redlink.smarti.processing.SmartiAnnotations.ANALYSIS_ANNOTATION;
 import static io.redlink.smarti.processing.SmartiAnnotations.CONVERSATION_ANNOTATION;
 import static io.redlink.smarti.processing.SmartiAnnotations.MESSAGE_IDX_ANNOTATION;
 
 /**
- * This class collects Named Entity Annotations created (by possible
- * multiple NER components) in the {@link AnalyzedText} and creates 
- * {@link Token}s in the {@link Conversation} for those contained
- * in {@link Message}s with {@link Origin#User} and an index greater
- * as {@link ConversationMeta#getLastMessageAnalyzed()}
- * <p>
- * This {@link QueryPreparator} DOES NOT extract Named Entities by itself!
+ * Allows to create Tokens for Words with specific Part-of-Speech (POS) tags. By default this component is configured 
+ * to create Tokens with the type `Attribute` for words that are classified as adjectives.
+ * 
+ * A stopword list with words that are ignored is provided in <code>wordlist/ignored_adjectives.txt</code>
  * 
  * @author Rupert Westenthaler
  *
@@ -124,7 +123,17 @@ public class PosCollector extends Processor {
             return;
         }
         List<Message> messages = conv.getMessages();
-        int lastAnalyzed = conv.getMeta().getLastMessageAnalyzed();
+        Analysis analysis = processingData.getAnnotation(ANALYSIS_ANNOTATION);
+        if(analysis == null){
+            log.warn("parsed {} does not have a '{}' annotation", processingData, ANALYSIS_ANNOTATION);
+            return;
+        }
+        
+        //NOTE: startMsgIdx was used in the old API to tell TemplateBuilders where to start. As this might get (re)-
+        //      added in the future (however in a different form) we set it to the default 0 (start from the beginning)
+        //      to keep the code for now
+        int lastAnalyzed = -1;
+        
         Iterator<Section> sections = at.getSections();
         while(sections.hasNext()){
             Section section = sections.next();
@@ -133,7 +142,7 @@ public class PosCollector extends Processor {
                 if(msgIdx > lastAnalyzed && msgIdx < messages.size()){
                     Message message = messages.get(msgIdx);
                     if(Origin.User == message.getOrigin()){
-                        conv.getTokens().addAll(createNamedEntityTokens(section, msgIdx, message));
+                        analysis.getTokens().addAll(createNamedEntityTokens(section, msgIdx, message));
                     }
                 }
             } else { //invalid section
@@ -146,7 +155,7 @@ public class PosCollector extends Processor {
     private List<Token> createNamedEntityTokens(Section section, int msgIdx, Message message) {
         //We look also at negated Chunks and mark attributes extracted form those as negated
         Iterator<io.redlink.nlp.model.Token> words = section.getTokens();
-        log.debug("Message {} - {}: {}", msgIdx, message.getOrigin(), message.getContent());
+        log.trace("Message {} - {}: {}", msgIdx, message.getOrigin(), message.getContent());
         List<Token> tokens = new ArrayList<>();
         while(words.hasNext()){
             io.redlink.nlp.model.Token word = words.next();

@@ -22,7 +22,7 @@
     <parent>
         <groupId>io.redlink.smarti</groupId>
         <artifactId>smarti</artifactId>
-        <version>0.4.0</version>
+        <version>0.7.3</version>
     </parent>
 
     <artifactId>smarti-application</artifactId>
@@ -56,6 +56,10 @@
             <artifactId>spring-boot-actuator</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+        </dependency>
+        <dependency>
             <groupId>org.springframework.session</groupId>
             <artifactId>spring-session</artifactId>
         </dependency>
@@ -76,10 +80,17 @@
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
         </dependency>
-
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-collections4</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>commons-validator</groupId>
+            <artifactId>commons-validator</artifactId>
         </dependency>
 
         <dependency>
@@ -111,6 +122,11 @@
             <version>${solrlib.version}</version>
             <scope>runtime</scope>
         </dependency>
+        <dependency>
+            <groupId>org.apache.lucene</groupId>
+            <artifactId>lucene-analyzers-common</artifactId>
+            <version>${solr.version}</version>
+        </dependency>
 
         <dependency> <!-- This only defines abstract processors for actual vocabularies -->
             <groupId>io.redlink.nlp</groupId>
@@ -137,7 +153,12 @@
             <version>${project.version}</version>
             <scope>runtime</scope>
         </dependency>
-
+        
+        <dependency>
+            <groupId>io.redlink.smarti</groupId>
+            <artifactId>chatpal-index</artifactId>
+            <version>${project.version}</version>
+        </dependency>
 
         <!-- Analysis -->
         <!-- (1) we need to detect the language -->
@@ -238,7 +259,6 @@
             <groupId>io.redlink.smarti</groupId>
             <artifactId>query-conversation</artifactId>
             <version>${project.version}</version>
-            <scope>runtime</scope>
         </dependency>
 
         <!-- (8) Solr based Information Retrieval -->
@@ -259,7 +279,7 @@
             <scope>runtime</scope>
         </dependency>
         <!-- (10) SolrCores for Interesting Terms -->
-        <!-- Those require to have the ziped core in a local folder and to 
+        <!-- Those require to have the ziped core in a local folder and to
              configure a application property pointing to that file -->
         <dependency> <!-- German Wikipedia -->
             <groupId>io.redlink.smarti</groupId>
@@ -273,9 +293,14 @@
             <version>${project.version}</version>
             <scope>runtime</scope>
         </dependency>
-        
 
         <!-- END Analysis dependencies -->
+
+        <dependency>
+            <groupId>io.springfox</groupId>
+            <artifactId>springfox-swagger-ui</artifactId>
+            <version>${springfox.version}</version>
+        </dependency>
 
         <dependency>
             <groupId>io.redlink.smarti</groupId>
@@ -301,18 +326,103 @@
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-test</artifactId>
+            <scope>test</scope>
+        </dependency>
 
+        <dependency>
+            <groupId>io.redlink.ext.logback</groupId>
+            <artifactId>logback-ext-cloudwatch-appender</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.redlink.ext.logback</groupId>
+            <artifactId>logback-ext-jackson</artifactId>
+            <scope>runtime</scope>
+        </dependency>
     </dependencies>
 
     <build>
         <finalName>${finalName}-${project.version}</finalName>
+        <resources>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>true</filtering>
+                <includes>
+                    <include>application.properties</include>
+                    <include>application-*.properties</include>
+                </includes>
+            </resource>
+            <resource>
+                <directory>src/main/resources</directory>
+                <filtering>false</filtering>
+                <excludes>
+                    <exclude>application.properties</exclude>
+                    <exclude>application-*.properties</exclude>
+                </excludes>
+            </resource>
+        </resources>
+
         <plugins>
             <plugin>
+                <artifactId>maven-resources-plugin</artifactId>
+                <configuration>
+                    <delimiters>
+                        <delimiter>@</delimiter>
+                    </delimiters>
+                    <overwrite>true</overwrite>
+                </configuration>
+            </plugin>            <plugin>
                 <artifactId>maven-compiler-plugin</artifactId>
             </plugin>
             <plugin>
                 <groupId>pl.project13.maven</groupId>
                 <artifactId>git-commit-id-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>com.github.kongchen</groupId>
+                <artifactId>swagger-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                        <phase>compile</phase>
+                    </execution>
+                </executions>
+                <configuration>
+                    <apiSources>
+                        <apiSource>
+                            <springmvc>true</springmvc>
+                            <locations>
+                                <location>io.redlink.smarti.webservice</location>
+                            </locations>
+                            <info>
+                                <title>Smarti</title>
+                                <version>${project.version}</version>
+                                <description>the smart in assistify</description>
+                                <contact>
+                                    <name>${project.organization.name}</name>
+                                    <url>${project.organization.url}</url>
+                                    <email>hello@redlink.co</email>
+                                </contact>
+                                <license>
+                                    <name>Apache 2.0</name>
+                                    <url>https://www.apache.org/licenses/LICENSE-2.0</url>
+                                </license>
+                            </info>
+                            <securityDefinitions>
+                            <securityDefinition>
+                                <json>/swagger/security-definition.json</json>
+                            </securityDefinition>
+                            </securityDefinitions>
+                            <modelSubstitute>/swagger/model-substitutes.txt</modelSubstitute>
+                            <swaggerDirectory>${project.build.outputDirectory}/META-INF</swaggerDirectory>
+                        </apiSource>
+                    </apiSources>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.codehaus.mojo</groupId>
@@ -347,6 +457,11 @@
                             <Loader-Path>BOOT-INF/lib,ext</Loader-Path>
                         </manifestEntries>
                     </archive>
+                    <excludes>
+                        <exclude>/swagger/**</exclude>
+                        <exclude>/application-local.properties</exclude>
+                        <exclude>/application-local.yaml</exclude>
+                    </excludes>
                 </configuration>
             </plugin>
             <plugin>
@@ -376,6 +491,10 @@
                             <groupId>io.redlink.smarti</groupId>
                             <artifactId>query-conversation</artifactId>
                         </dependency>
+                        <dependency> <!-- for the chatpal solr config -->
+                            <groupId>io.redlink.smarti</groupId>
+                            <artifactId>chatpal-index</artifactId>
+                        </dependency>
                     </requiresUnpack>
                     <!-- GPL licensed, needs to be installed manually -->
                     <excludes>
@@ -398,7 +517,99 @@
 
                 </configuration>
             </plugin>
+            <plugin>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>fetch-solr-core-config</id>
+                        <goals>
+                            <goal>unpack</goal>
+                        </goals>
+                        <phase>prepare-package</phase>
+                        <configuration>
+                            <outputDirectory>${project.build.directory}/solr-cores</outputDirectory>
+
+                            <overWriteIfNewer>true</overWriteIfNewer>
+                            <overWriteSnapshots>true</overWriteSnapshots>
+                            <artifactItems>
+                                <artifactItem>
+                                    <groupId>${project.groupId}</groupId>
+                                    <artifactId>query-conversation</artifactId>
+                                    <version>${project.version}</version>
+                                    <classifier>solrcores</classifier>
+                                    <type>zip</type>
+                                </artifactItem>
+                                <artifactItem>
+                                    <groupId>${project.groupId}</groupId>
+                                    <artifactId>chatpal-index</artifactId>
+                                    <version>${project.version}</version>
+                                    <classifier>solrcores</classifier>
+                                    <type>zip</type>
+                                </artifactItem>
+                            </artifactItems>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
+                <artifactId>maven-assembly-plugin</artifactId>
+                <configuration>
+                    <archiveBaseDirectory>${project.build.directory}/solr-cores</archiveBaseDirectory>
+                </configuration>
+            </plugin>
         </plugins>
+        <pluginManagement>
+            <plugins>
+                <!--This plugin's configuration is used to store Eclipse m2e settings only. It has no influence on the Maven build itself.-->
+                <plugin>
+                    <groupId>org.eclipse.m2e</groupId>
+                    <artifactId>lifecycle-mapping</artifactId>
+                    <version>1.0.0</version>
+                    <configuration>
+                        <lifecycleMappingMetadata>
+                            <pluginExecutions>
+                                <pluginExecution>
+                                    <pluginExecutionFilter>
+                                        <groupId>
+                                            com.github.kongchen
+                                        </groupId>
+                                        <artifactId>
+                                            swagger-maven-plugin
+                                        </artifactId>
+                                        <versionRange>
+                                            [3.1.5,)
+                                        </versionRange>
+                                        <goals>
+                                            <goal>generate</goal>
+                                        </goals>
+                                    </pluginExecutionFilter>
+                                    <action>
+                                        <ignore />
+                                    </action>
+                                </pluginExecution>
+                            </pluginExecutions>
+                        </lifecycleMappingMetadata>
+                    </configuration>
+                </plugin>
+            </plugins>
+        </pluginManagement>
     </build>
+
+    <profiles>
+        <profile>
+            <id>full</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-maven-plugin</artifactId>
+                        <configuration>
+                            <excludes combine.self="override" />
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 
 </project>

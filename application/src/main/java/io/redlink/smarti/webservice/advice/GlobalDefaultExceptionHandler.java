@@ -28,6 +28,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.annotation.ControllerAdvice;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -51,6 +52,11 @@ public class GlobalDefaultExceptionHandler {
     public ResponseEntity<Map<String,Object>> defaultErrorHandler(Exception e) throws Exception {
         if (e instanceof ServletException) {
             // ServletException will be handled by Spring
+            throw e;
+        }
+
+        if (e instanceof AccessDeniedException) {
+            // will be handled by Spring
             throw e;
         }
 
@@ -82,8 +88,20 @@ public class GlobalDefaultExceptionHandler {
         } else {
             log.trace("trace omitted (webservice.errorhandler.writetrace=false)");
         }
-        log.warn("ErrorResponse (status: {}, {}: {})", status, e.getClass().getSimpleName(), e.getMessage());
-        log.debug("STACKTRACE:", e);
+        //NOTE: '500 Internal Server Error' responses indicate some internal error that we want to log on WARN level!
+        if (status == HttpStatus.INTERNAL_SERVER_ERROR || status == HttpStatus.SERVICE_UNAVAILABLE) {
+            if (log.isDebugEnabled()) {
+                log.warn("Sending ErrorResponse (status: {}, {}: {}) [Stacktrace FYI]", status, e.getClass().getSimpleName(), e.getMessage(), e);
+            } else {
+                log.warn("Sending ErrorResponse (status: {}, {}: {})", status, e.getClass().getSimpleName(), e.getMessage());
+            }
+        } else { //Error indicating that something was wrong with the request so we do not want to log in INFO or higher
+            if (log.isTraceEnabled()) {
+                log.debug("Sending ErrorResponse (status: {}, {}: {}) [Stacktrace FYI]", status, e.getClass().getSimpleName(), e.getMessage(), e);
+            } else {
+                log.debug("Sending ErrorResponse (status: {}, {}: {})", status, e.getClass().getSimpleName(), e.getMessage());
+            }
+        }
         return reb.build();
     }
 

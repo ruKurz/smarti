@@ -18,19 +18,24 @@
 package io.redlink.smarti.model;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.swagger.annotations.ApiModel;
+import io.swagger.annotations.ApiModelProperty;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 /**
  */
 @JsonInclude(JsonInclude.Include.NON_NULL)
+@ApiModel(description = "conversation context")
 public class Context {
 
+    @ApiModelProperty(notes="the context type")
     private String contextType; // = "ApplicationHelp"
+    @ApiModelProperty(notes="the environment type")
     private String environmentType; // = "SAP_Application"
+    @ApiModelProperty(notes="the domain of the conversation")
     private String domain;
-    private Map<String,String> environment = new HashMap<>();
+    private Map<String,List<String>> environment = new HashMap<>();
 
     public String getContextType() {
         return contextType;
@@ -57,23 +62,23 @@ public class Context {
         return this;
     }
 
-    public Map<String, String> getEnvironment() {
+    public Map<String, List<String>> getEnvironment() {
         return environment;
     }
 
-    public String getEnvironment(String key) {
+    public List<String> getEnvironment(String key) {
         return environment.get(key);
     }
 
-    public String getEnvironment(String key, String defaultValue) {
-        return environment.getOrDefault(key, defaultValue);
-    }
-
-    public void setEnvironment(Map<String, String> environment) {
+    public void setEnvironment(Map<String, List<String>> environment) {
         this.environment = environment;
     }
 
     public void setEnvironment(String key, String value) {
+        setEnvironment(key, new LinkedList<>(Collections.singletonList(value)));
+    }
+
+    public void setEnvironment(String key, List<String> value) {
         environment.put(key, value);
     }
 }

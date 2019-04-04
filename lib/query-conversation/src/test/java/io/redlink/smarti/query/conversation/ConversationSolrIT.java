@@ -17,11 +17,9 @@
 
 package io.redlink.smarti.query.conversation;
 
-import io.redlink.smarti.api.StoreService;
-import io.redlink.smarti.model.Conversation;
-import io.redlink.smarti.model.ConversationMeta;
-import io.redlink.smarti.model.Message;
-import io.redlink.smarti.services.InMemoryStoreService;
+import io.redlink.smarti.model.*;
+import io.redlink.smarti.repositories.ConversationRepository;
+import io.redlink.smarti.services.ConversationService;
 import io.redlink.solrlib.SolrCoreContainer;
 import io.redlink.solrlib.SolrCoreDescriptor;
 import io.redlink.solrlib.spring.boot.autoconfigure.SolrLibEmbeddedAutoconfiguration;
@@ -30,13 +28,16 @@ import org.apache.solr.client.solrj.SolrClient;
 import org.apache.solr.client.solrj.SolrQuery;
 import org.apache.solr.client.solrj.SolrServerException;
 import org.apache.solr.client.solrj.response.QueryResponse;
+import org.bson.types.ObjectId;
 import org.hamcrest.Matchers;
+import org.junit.After;
 import org.junit.Before;
 import org.junit.ClassRule;
 import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 import org.junit.runner.RunWith;
+import org.mockito.Mock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -45,15 +46,24 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.data.mongodb.repository.config.EnableMongoRepositories;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 
 import java.io.IOException;
 import java.nio.file.Files;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
+import java.util.UUID;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 /**
  */
@@ -63,8 +73,8 @@ import static org.junit.Assert.assertThat;
 @EnableAutoConfiguration
 @ContextConfiguration(classes = {
         ConversationSolrIT.EmbeddedSolrConfiguration.class, SolrLibEmbeddedAutoconfiguration.class,
-        InMemoryStoreService.class, ConversationIndexer.class})
-@Ignore //FIXME this test does NOT work!
+        ConversationService.class, ConversationIndexer.class, ConversationSearchService.class})
+@EnableMongoRepositories(basePackageClasses={ConversationRepository.class})
 public class ConversationSolrIT {
 
     @ClassRule
@@ -78,13 +88,25 @@ public class ConversationSolrIT {
     private SolrCoreContainer solrServer;
 
     @Autowired
-    private StoreService storeService;
+    private ConversationRepository conversationRepository;
+    
+    @Autowired
+    private ConversationService conversationService;
+
+    @Autowired
+    private ConversationSearchService searchService;
 
     @Autowired
     private ConversationIndexer conversationIndexer;
     
+    private Client client;
+    
     @Before
     public void cleanSolr() throws Exception {
+        client = new Client();
+        client.setId(new ObjectId());
+        client.setName("Test Client");
+        client.setDescription("A Client created for testing");
         try (SolrClient solrClient = solrServer.getSolrClient(conversationCore)) {
             solrClient.deleteByQuery("*:*");
             solrClient.commit();
@@ -92,19 +114,24 @@ public class ConversationSolrIT {
         }
     }
 
+    @After
+    public void cleanConversationRepo() {
+        conversationRepository.deleteAll();
+    }
+    
     @Test
     public void testEventPropagation() throws Exception {
         long docCount = countDocs();
 
-        final Conversation conversation = buildConversation("Servus Hasso, wie geht's denn so?");
+        final Conversation conversation = buildConversation(client,"Servus Hasso, wie geht's denn so?");
 
-        storeService.store(conversation);
+        conversationService.update(client, conversation);
         Thread.sleep(2 * conversationIndexer.getCommitWithin());
 
         assertThat(countDocs(), Matchers.equalTo(docCount));
 
         conversation.getMeta().setStatus(ConversationMeta.Status.Complete);
-        storeService.store(conversation);
+        conversationService.update(client, conversation);
         Thread.sleep(2 * conversationIndexer.getCommitWithin());
         assertThat(countDocs(), Matchers.greaterThan(docCount));
     }
@@ -112,16 +139,18 @@ public class ConversationSolrIT {
     @Test
     public void testMlt() throws Exception {
 
-        final Conversation conversation1 = buildConversation("Das ist ein test");
-        final Conversation conversation2 = buildConversation("Was anderes");
+        ObjectId owner = new ObjectId();
+
+        final Conversation conversation1 = buildConversation(client,"Das ist ein test");
+        final Conversation conversation2 = buildConversation(client,"Was anderes");
 
         conversation1.getMeta().setStatus(ConversationMeta.Status.Complete);
         conversation2.getMeta().setStatus(ConversationMeta.Status.Complete);
 
-        final Conversation conversation3 = buildConversation("Das ist ein test");
+        final Conversation conversation3 = buildConversation(client,"Das ist ein test");
 
-        storeService.store(conversation1);
-        storeService.store(conversation2);
+        conversationService.update(client, conversation1);
+        conversationService.update(client, conversation2);
 
         Thread.sleep(2 * conversationIndexer.getCommitWithin());
 
@@ -129,7 +158,65 @@ public class ConversationSolrIT {
 
         ConversationMltQueryBuilder hassoMlt = new ConversationMltQueryBuilder(solrServer, conversationCore, null);
 
-        hassoMlt.doBuildQuery(null, null, conversation3);
+        // TODO does not make sense to build a query without a template...
+        // hassoMlt.doBuildQuery(null, null, conversation3);
+
+    }
+
+    @Test
+    public void testSearch() throws InterruptedException, IOException, SolrServerException {
+
+        Client client2 = new Client();
+        client2.setId(new ObjectId());
+        client2.setName("Test Client 2");
+
+        final Conversation conversation1 = buildConversation(client,"Das ist ein test", "Nochmal ein test", "Was anderes");
+        final Conversation conversation2 = buildConversation(client,"Was anderes");
+        final Conversation conversation3 = buildConversation(client,"test hallo");
+        final Conversation conversation4 = buildConversation(client2,"test hallo");
+
+        conversation1.getMeta().setStatus(ConversationMeta.Status.Complete);
+        conversation2.getMeta().setStatus(ConversationMeta.Status.Complete);
+        conversation3.getMeta().setStatus(ConversationMeta.Status.Complete);
+        conversation4.getMeta().setStatus(ConversationMeta.Status.Complete);
+
+        final Conversation conversation5 = buildConversation(client,"Das ist ein test");
+
+        conversationService.update(client, conversation1);
+        conversationService.update(client, conversation2);
+        conversationService.update(client, conversation3);
+        conversationService.update(client2, conversation4);
+        conversationService.update(client, conversation5);
+
+        solrServer.getSolrClient(conversationCore).commit();
+
+        //create search
+        MultiValueMap <String,String> query = new LinkedMultiValueMap<>();
+        query.add("text", "test");
+        query.add("group.limit", "3");
+        query.add("hl", "true");
+        query.add("hl.fl", "text");
+
+        SearchResult<ConversationSearchService.ConversationResult> result = searchService.search(client,query);
+
+        assertEquals(2, result.getNumFound());
+        assertEquals(1, result.getDocs().get(0).getResults().size()); //one result
+        assertEquals(2, result.getDocs().get(0).getResults().get(0).getMessages().size()); //but with matches in 2 messages
+        assertEquals(1, result.getDocs().get(1).getResults().size());
+
+        MultiValueMap <String,String> query2 = new LinkedMultiValueMap<>();
+        query2.add("text", "xyz");
+
+        SearchResult<ConversationSearchService.ConversationResult> result2 = searchService.search(client,query2);
+
+        assertEquals(0, result2.getNumFound());
+
+        solrServer.getSolrClient(conversationCore).deleteByQuery("*:*");
+        solrServer.getSolrClient(conversationCore).commit();
+
+        SearchResult<ConversationSearchService.ConversationResult> result3 = searchService.search(client,query);
+
+        assertEquals(0, result3.getNumFound());
 
     }
 
@@ -140,12 +227,16 @@ public class ConversationSolrIT {
         }
     }
 
-    private Conversation buildConversation(String content) {
+    private Conversation buildConversation(Client client, String ... content) {
         final Conversation conversation = new Conversation();
-        final Message m = new Message();
-        m.setTime(new Date());
-        m.setContent(content);
-        conversation.getMessages().add(m);
+        conversation.setOwner(client.getId());
+        for(int i = 0; i < content.length; i++) {
+            final Message m = new Message();
+            m.setId(UUID.randomUUID().toString());
+            m.setTime(Date.from(Instant.now().minusSeconds(60*(content.length-i))));
+            m.setContent(content[i]);
+            conversation.getMessages().add(m);
+        }
         return conversation;
     }
     

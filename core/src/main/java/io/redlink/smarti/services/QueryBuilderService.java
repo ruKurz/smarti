@@ -18,24 +18,19 @@
 package io.redlink.smarti.services;
 
 import io.redlink.smarti.api.QueryBuilder;
-import io.redlink.smarti.api.QueryBuilderContainer;
-import io.redlink.smarti.exception.ConflictException;
 import io.redlink.smarti.exception.NotFoundException;
-import io.redlink.smarti.model.Conversation;
-import io.redlink.smarti.model.State;
-import io.redlink.smarti.model.Template;
+import io.redlink.smarti.model.*;
 import io.redlink.smarti.model.config.ComponentConfiguration;
 import io.redlink.smarti.model.config.Configuration;
 import io.redlink.smarti.model.result.Result;
-
-import org.apache.commons.collections4.CollectionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 
 import java.io.IOException;
 import java.util.*;
@@ -69,13 +64,28 @@ public class QueryBuilderService {
         }
     }
 
+    public void buildQueries(Client client, Conversation conversation, Analysis analysis) {
+        if(conversation == null){
+            return;
+        }
+        
+        if(!confService.isConfiguration(client)) return;
+
+        Configuration clientConfig = confService.getClientConfiguration(client.getId());
+
+        buildQueries(clientConfig, conversation, analysis);
+    }
+
     @SuppressWarnings({ "rawtypes", "unchecked" })
-    public void buildQueries(Conversation conversation) {
+    public void buildQueries(Configuration config, Conversation conversation, Analysis analysis) {
+        if(config == null){
+            throw new NullPointerException("parsed config MUST NOT be NULL!");
+        }
         log.debug("Building queries for {}", conversation);
         //retrieve the states for the queries
         final Map<Integer,Map<String,State>> queryStates = new HashMap<>();
         final AtomicInteger idx = new AtomicInteger();
-        conversation.getTemplates().forEach(t -> {
+        analysis.getTemplates().forEach(t -> {
             final Map<String,State> templateQueryStates = new HashMap<>();
             t.getQueries().stream()
                 .filter(q -> q.getCreator() != null)
@@ -85,20 +95,16 @@ public class QueryBuilderService {
             t.setQueries(new LinkedList<>()); //remove the current queries before they are rebuilt
         });
 
-        if(!confService.isConfiguration(conversation.getClientId())) return;
-
-        Configuration clientConfig = confService.getConfiguration(conversation.getClientId());
 
         //build the new queries
         //NOTE: I have no idea how to write this using generics. But the impl. checks for
         //      types safety
-
         for (QueryBuilder queryBuilder : builders.values()) {
-            List<ComponentConfiguration> builderConfigs = (List<ComponentConfiguration>)clientConfig.getConfigurations(queryBuilder);
+            List<ComponentConfiguration> builderConfigs = (List<ComponentConfiguration>)config.getConfigurations(queryBuilder);
             for(ComponentConfiguration cc : builderConfigs){
                 log.trace("build queries [{} | {} | {}]", queryBuilder, cc, conversation);
                 try {
-                    queryBuilder.buildQuery(conversation, cc);
+                    queryBuilder.buildQuery(conversation, analysis, cc);
                 } catch (RuntimeException e) {
                     log.warn("Failed to build Queries using {} with {} for {} ({} - {})",
                             queryBuilder, cc, conversation, e.getClass().getSimpleName(), e.getMessage());
@@ -109,7 +115,7 @@ public class QueryBuilderService {
 
         //recover the state of known queries
         idx.set(0); //rest the template index
-        conversation.getTemplates().forEach(t -> {
+        analysis.getTemplates().forEach(t -> {
             final Map<String,State> templateQueryStates = queryStates.get(Integer.valueOf(idx.getAndIncrement()));
             t.getQueries().stream().forEach(q -> {
                 State state = templateQueryStates.get(q.getCreator());
@@ -120,18 +126,25 @@ public class QueryBuilderService {
         });
     }
 
-    public List<? extends Result> execute(String creatorString, Template template, Conversation conversation) throws IOException {
-        Configuration conf = confService.getConfiguration(conversation.getClientId());
+    public SearchResult<? extends Result> execute(Client client, String creator, Template template, Conversation conversation, Analysis analysis) throws IOException {
+        return execute(client, creator, template, conversation, analysis, new LinkedMultiValueMap<>());
+    }
+
+    public SearchResult<? extends Result> execute(Client client, String creatorString, Template template, Conversation conversation, Analysis analysis, MultiValueMap<String, String> params) throws IOException {
+        Configuration conf = confService.getClientConfiguration(client);
         if(conf == null){
-            throw new IllegalStateException("The client '" + conversation.getChannelId() + "' of the parsed conversation does not have a Configuration!");
+            throw new IllegalStateException("The client '" + conversation.getOwner() + "' of the parsed conversation does not have a Configuration!");
         }
         final Entry<QueryBuilder<ComponentConfiguration>, ComponentConfiguration> creator = getQueryBuilder(creatorString, conf);
         if (creator != null) {
-            return creator.getKey().execute(creator.getValue(), template, conversation);
+            return creator.getKey().execute(creator.getValue(), template, conversation, analysis, params);
         } else {
             throw new NotFoundException(QueryBuilder.class, creatorString, "QueryBuilder for creator '"+ creatorString +"' not present");
         }
     }
+
+
+
     /**
      * Getter for the QueryBuilder for the parsed creator string
      * @param creator the creator string formated as '<code>queryBuilder/{queryBuilder#getName()}/{config#getName()}</code>'
@@ -177,4 +190,5 @@ public class QueryBuilderService {
     public Map<String, QueryBuilder> getQueryBuilders() {
         return Collections.unmodifiableMap(builders);
     }
+
 }

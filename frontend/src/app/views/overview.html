@@ -5,7 +5,7 @@
         <th>Name</th>
         <th>Description</th>
         <th>Last Update</th>
-        <th>Is Default</th>
+        <th ng-if="$user.isAdmin">Is Default</th>
         <th>Actions</th>
     </tr>
     <tr ng-repeat="client in clients">
@@ -13,15 +13,54 @@
         <td ng-bind="client.data.name">
         <td ng-bind="client.data.description">
         <td ng-bind="client.data.lastUpdate | date : 'MMM d, y h:mm:ss a' ">
-        <td>
-          <input ng-change="saveClient(client)" type="checkbox" ng-model="client.data.defaultClient">
+        <td ng-if="$user.isAdmin">
+          <input type="checkbox"
+                 title="default client"
+                 ng-change="saveClient(client)"
+                 ng-model="client.data.defaultClient">
         </td>
         <td>
-          <button class="btn btn-primary" ng-click="edit(client.data.id)">edit</button>
-          <button class="btn btn-default" ng-click="clone(client.data.id)">clone</button>
-          <button class="btn btn-danger" ng-click="delete(client)">delete</button>
+          <div class="btn-group" uib-dropdown>
+            <button class="btn btn-default"
+              uib-dropdown-toggle>
+              <i class="glyphicon glyphicon-cog"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-right" uib-dropdown-menu>
+              <li role="menuitem">
+                <a ng-click="edit(client.data.id)">
+                  <i class="glyphicon glyphicon-edit"></i> Edit Client Configuration
+                </a>
+              </li>
+              <li role="menuitem">
+                <a ng-click="manageSecurity(client.data.id)">
+                  <i class="glyphicon glyphicon-lock"></i> Manage Security
+                </a>
+              </li>
+              <li role="separator" class="divider"></li>
+              <li role="menuitem">
+                <a ng-click="manageConversations(client.data.id)">
+                  <i class="glyphicon glyphicon-list"></i> Manage Conversations
+                </a>
+              </li>
+              <li role="separator" ng-if="$user.isAdmin" class="divider"></li>
+              <li role="menuitem" ng-if="$user.isAdmin">
+                <a ng-click="clone(client.data.id)">
+                  <i class="glyphicon glyphicon-duplicate"></i> Clone Client Configuration
+                </a>
+              </li>
+              <li role="menuitem" ng-if="$user.isAdmin">
+                <a ng-click="delete(client)" class="text-danger">
+                  <i class="glyphicon glyphicon-trash"></i> Delete Client
+                </a>
+              </li>
+            </ul>
+          </div>
         </td>
-    </td>
     </tr>
 </table>
-<button class="btn btn-primary" ng-click="createClient()">Create Client</button>
+<button class="btn btn-primary"
+        ng-if="$user.isAdmin"
+        ng-click="createClient()">Create Client</button>
+<button class="btn btn-default"
+        ng-if="$user.isAdmin && defaultClient"
+        ng-click="cloneDefaultClient()">Clone Default Client</button>

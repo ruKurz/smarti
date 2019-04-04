@@ -20,29 +20,28 @@ package io.redlink.smarti.model;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import io.redlink.smarti.model.profile.Recap;
-import io.redlink.smarti.model.profile.Setting;
 import io.swagger.annotations.ApiModel;
 import io.swagger.annotations.ApiModelProperty;
 
-import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+
+import org.springframework.data.annotation.PersistenceConstructor;
 
 /**
  * A User - a Customer - of Reisebuddy
  */
-@ApiModel
+@ApiModel(description = "a user - taking part in a conversation")
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
 public class User {
 
-    @ApiModelProperty(value = "unique ID", required = true)
-    String id;
-    String displayName;
-    String phoneNumber;
-    String email;
+    @ApiModelProperty(value = "unique ID")
+    private final String id;
+    private String displayName;
+    private String phoneNumber;
+    private String email;
     @ApiModelProperty(notes = "the hometown of the user, used as fallback for travel-inquires")
-    String homeTown;
+    private String homeTown;
 
 //    List<Recap> history;
 
@@ -54,6 +53,7 @@ public class User {
     }
 
     @JsonCreator
+    @PersistenceConstructor
     public User(@JsonProperty("id") String id) {
         this.id = id;
     }

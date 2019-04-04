@@ -20,36 +20,88 @@ package io.redlink.smarti.query.conversation;
 
 import io.redlink.smarti.model.Query;
 
-import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.List;
+import java.util.HashMap;
+import java.util.LinkedHashSet;
+import java.util.Map;
+import java.util.Set;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 /**
  */
 public class ConversationSearchQuery extends Query {
 
-    private List<String> keywords = new ArrayList<>();
+    @JsonProperty("defaults")
+    private final Map<String,Object> defaults = new HashMap<>();
+    @JsonProperty("keywords")
+    private final Collection<String> keywords = new LinkedHashSet<>();
+    @JsonProperty("terms")
+    private final Collection<String> terms = new LinkedHashSet<>();
+    @JsonProperty("queryParams")
+    private final Set<String> queryParams = new LinkedHashSet<>();
+    @JsonProperty("filterQueries")
+    private final Set<Filter> filters = new LinkedHashSet<>();
+    @JsonProperty("similarityQuery")
+    private String similarityQuery;
 
-    public ConversationSearchQuery() {
-        super();
-    }
-
-    public ConversationSearchQuery(String creator) {
+    public ConversationSearchQuery(@JsonProperty("creator") String creator) {
         super(creator);
     }
 
-    public void setKeyword(String keyword) {
-        this.keywords.clear();
-        this.keywords.add(keyword);
+    public Map<String, Object> getDefaults() {
+        return defaults;
+    }
+    
+    public void setDefaults(Map<String, Object> defaults) {
+        this.defaults.clear();
+        if(defaults != null){
+            this.defaults.putAll(defaults);
+        }
+    }
+    
+    public void addFilter(Filter filter){
+        this.filters.add(filter);
+    }
+    
+    public Collection<Filter> getFilters() {
+        return filters;
+    }
+    
+    public void setFilters(Collection<Filter> filters) {
+        this.filters.clear();
+        if(filters != null){
+            this.filters.addAll(filters);
+        }
     }
 
-    public List<String> getKeyword() {
-        return Collections.unmodifiableList(keywords);
-    }
-
-    public void setKeywords(Collection<String> strings) {
+    public void setKeywords(Collection<String> strs) {
         keywords.clear();
-        keywords.addAll(strings);
+        if(strs != null){
+            keywords.addAll(strs);
+        }
+    }
+    
+    public Collection<String> getKeywords() {
+        return keywords;
+    }
+
+    public void setTerms(Collection<String> strs) {
+        terms.clear();
+        if(strs != null){
+            terms.addAll(strs);
+        }
+    }
+    
+    public Collection<String> getTerms() {
+        return terms;
+    }
+
+    public void setSimilarityQuery(String similarityQuery) {
+        this.similarityQuery = similarityQuery;
+    }
+    
+    public String getSimilarityQuery() {
+        return similarityQuery;
     }
 }

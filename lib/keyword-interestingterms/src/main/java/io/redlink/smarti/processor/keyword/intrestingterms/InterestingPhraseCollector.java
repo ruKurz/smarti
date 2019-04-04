@@ -28,7 +28,7 @@ import io.redlink.nlp.model.pos.LexicalCategory;
 import io.redlink.nlp.model.pos.Pos;
 import io.redlink.nlp.model.pos.PosSet;
 import io.redlink.nlp.model.util.NlpUtils;
-import io.redlink.smarti.api.QueryPreparator;
+import io.redlink.smarti.model.Analysis;
 import io.redlink.smarti.model.Conversation;
 import io.redlink.smarti.model.Message;
 import io.redlink.smarti.model.Message.Origin;
@@ -102,8 +102,19 @@ public final class InterestingPhraseCollector extends Processor {
             log.warn("Unable to process ProcessingData without a '{}' annotation", CONVERSATION_ANNOTATION);
             return;
         }
+        Analysis analysis = processingData.getAnnotation(ANALYSIS_ANNOTATION);
+        if(analysis == null){
+            log.warn("parsed {} does not have a '{}' annotation", processingData, ANALYSIS_ANNOTATION);
+            return;
+        }
+
         List<Message> messages = conv.getMessages();
-        int lastAnalyzed = conv.getMeta().getLastMessageAnalyzed();
+
+        //NOTE: startMsgIdx was used in the old API to tell TemplateBuilders where to start. As this might get (re)-
+        //      added in the future (however in a different form) we set it to the default 0 (start from the beginning)
+        //      to keep the code for now
+        int lastAnalyzed = -1;
+        
         Iterator<Section> sections = at.getSections();
         while(sections.hasNext()){
             Section section = sections.next();
@@ -112,7 +123,7 @@ public final class InterestingPhraseCollector extends Processor {
                 if(msgIdx > lastAnalyzed && msgIdx < messages.size()){
                     Message message = messages.get(msgIdx);
                     if(Origin.User == message.getOrigin()){
-                        conv.getTokens().addAll(createPhraseTokens(section, msgIdx, message));
+                        analysis.getTokens().addAll(createPhraseTokens(section, msgIdx, message));
                     }
                 }
             } else { //invalid section
@@ -149,7 +160,7 @@ public final class InterestingPhraseCollector extends Processor {
                         sectionEnds.add(span.getEnd());
                     }
                     if(!Collections.disjoint(NOUN_PHRASE_CATEGORIES, phraseAnno.getCategories())){
-                        log.debug(" - add sectionEnd {} for {} [phraseAnno: {}]", phrase.getEnd(), phrase.getSpan(), phraseAnno);
+                        log.trace(" - add sectionEnd {} for {} [phraseAnno: {}]", phrase.getEnd(), phrase.getSpan(), phraseAnno);
                         sectionEnds.add(span.getEnd());
                     }
                 }
@@ -183,10 +194,10 @@ public final class InterestingPhraseCollector extends Processor {
                 boolean completePhrase = false;
                 if(activePhrase != null){
                     if(word.isInteresting() || word.isConnecting()){
-                        log.debug(" - add {}  to phrase", word);
+                        log.trace(" - add {}  to phrase", word);
                         activePhrase.addWord(word);
                     } else {
-                        log.debug(" - close phrase because of word {}",word);
+                        log.trace(" - close phrase because of word {}",word);
                         completePhrase = true;
                     }
                 } else if(word.isInteresting()){
@@ -194,7 +205,7 @@ public final class InterestingPhraseCollector extends Processor {
                     activePhrase = new InterestingTermPhrase(word);
                 }
                 if(sectionEnds.remove(word.getEnd())){
-                    log.debug(" - close phrase because of Section end");
+                    log.trace(" - close phrase because of Section end");
                     completePhrase = true;
                 }
                 if(completePhrase && activePhrase != null){
